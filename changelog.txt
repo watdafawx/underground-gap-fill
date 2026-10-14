@@ -1,0 +1,8 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-10-14
+  Features:
+    - Fills the one-tile gap after an underground pipe (to another underground or a machine's pipe connection)
+      or underground belt (exit to the next entrance, straight or round a corner)
+    - Waits until you stop building, so drag-built undergrounds keep their full range
+    - Uses the matching pipe or belt and the underground's quality, from your inventory or as a ghost

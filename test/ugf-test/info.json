@@ -1,0 +1,2 @@
+{"name": "ugf-test", "version": "0.0.1", "title": "underground gap fill test", "author": "mtopfox", "factorio_version": "2.0",
+ "dependencies": ["base", "underground-gap-fill"]}
