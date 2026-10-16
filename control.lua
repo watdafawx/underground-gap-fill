@@ -44,25 +44,100 @@ local function is_type(name, t)
   return p and p.type == t and p.items_to_place_this and p.items_to_place_this[1] and true or false
 end
 
-local function pipe_for(ug)
-  -- 1. the pipe its recipe is made from
+-- names of the real recipes making `item` (recycling and other hidden recipes left out: they're always enabled)
+local function recipes_for(item)
+  local list = {}
+  for name, r in pairs(prototypes.get_recipe_filtered({
+    { filter = "has-product-item", elem_filters = { { filter = "name", name = item } } } })) do
+    if not r.hidden and r.category ~= "recycling" then list[#list + 1] = name end
+  end
+  return list
+end
+
+-- the pipe that matches an underground: the pipe its recipe is made from, else its name without "-to-ground"
+-- (steel-pipe-to-ground -> steel-pipe, kr-steel-pipe-to-ground -> kr-steel-pipe)
+local function matching_pipe(ug)
   local proto = prototypes.entity[ug]
   for _, item in pairs(proto.items_to_place_this or {}) do
-    local recipes = prototypes.get_recipe_filtered({
-      { filter = "has-product-item", elem_filters = { { filter = "name", name = item.name } } } })
-    for _, r in pairs(recipes) do
-      for _, ing in pairs(r.ingredients) do
+    for _, rn in pairs(recipes_for(item.name)) do
+      for _, ing in pairs(prototypes.recipe[rn].ingredients) do
         local it = ing.type == "item" and prototypes.item[ing.name]
         local res = it and it.place_result
         if res and is_type(res.name, "pipe") then return res.name end
       end
     end
   end
-  -- 2. its name without "-to-ground" (steel-pipe-to-ground -> steel-pipe, kr-steel-pipe-to-ground -> kr-steel-pipe)
   local base = ug:gsub("%-to%-ground$", "")
   if base ~= ug and is_type(base, "pipe") then return base end
-  -- 3. the plain pipe
-  if is_type("pipe", "pipe") then return "pipe" end
+end
+
+-- connection categories of a prototype's normal (above-ground) pipe connections
+local function categories(proto)
+  local set = {}
+  for _, fb in pairs(proto.fluidbox_prototypes or {}) do
+    for _, c in pairs(fb.pipe_connections or {}) do
+      if c.connection_type == "normal" then
+        for _, cat in pairs(c.connection_category or { "default" }) do set[cat] = true end
+      end
+    end
+  end
+  return set
+end
+
+-- every pipe that can go into an underground's gap, best match first:
+-- the matching pipe, then plain "pipe", then the rest by name. Pipes that can't connect to it are left out.
+local cand_cache = {}
+local function pipe_candidates(ug)
+  local list = cand_cache[ug]
+  if list then return list end
+  list = {}
+  local cats, seen = categories(prototypes.entity[ug]), {}
+  local function add(n, match)
+    if not n or seen[n] or not is_type(n, "pipe") then return false end
+    seen[n] = true
+    for cat in pairs(categories(prototypes.entity[n])) do
+      if cats[cat] then
+        list[#list + 1] = { name = n, item = prototypes.entity[n].items_to_place_this[1].name, match = match }
+        return true
+      end
+    end
+    return false
+  end
+  local matched = add(matching_pipe(ug), true)
+  add("pipe", not matched)
+  local rest = {}
+  for n in pairs(prototypes.get_entity_filtered({ { filter = "type", type = "pipe" } })) do rest[#rest + 1] = n end
+  table.sort(rest)
+  for _, n in ipairs(rest) do add(n, false) end
+  cand_cache[ug] = list
+  return list
+end
+
+local function researched(item, force)
+  for _, name in pairs(recipes_for(item)) do
+    local r = force.recipes[name]
+    if r and r.enabled then return true end
+  end
+  return false
+end
+
+-- picks the pipe for an underground's gap by the player's "Pipe choice":
+--   match       the pipe that matches the underground (steel with steel), then one you have, can craft, researched
+--   have        one in your inventory, then one you can hand-craft, then the matching one
+--   researched  only pipes whose recipe is researched (or that you carry), matching first
+-- has(item) / craftable(item) answer for the player; ties go to the earlier candidate.
+local function pick_pipe(ug, mode, force, has, craftable)
+  local best, best_score
+  for _, c in ipairs(pipe_candidates(ug)) do
+    local m, h = c.match and 1 or 0, has(c.item) and 1 or 0
+    local k, r = (h == 0 and craftable(c.item)) and 1 or 0, researched(c.item, force) and 1 or 0
+    local score
+    if mode == "have" then score = h * 8 + k * 4 + m * 2 + r
+    elseif mode == "researched" then score = (r + h > 0) and (m * 4 + h * 2 + k + 1) or nil
+    else score = m * 8 + h * 4 + k * 2 + r end
+    if score and (not best_score or score > best_score) then best, best_score = c.name, score end
+  end
+  return best
 end
 
 local function belt_for(ug)
@@ -83,7 +158,12 @@ local function fill_name(t, ug)
   local key = t .. "/" .. ug
   local v = fill_cache[key]
   if v == nil then
-    v = (t == "pipe-to-ground" and pipe_for(ug) or belt_for(ug)) or false
+    if t == "pipe-to-ground" then
+      local c = pipe_candidates(ug)[1]
+      v = c and c.name or false
+    else
+      v = belt_for(ug) or false
+    end
     fill_cache[key] = v
   end
   return v or nil
@@ -191,9 +271,22 @@ local function fill(e, player)
   local s, force, quality = e.surface, e.force, e.quality.name
   if occupied(s, gap) then return end
 
-  local item = prototypes.entity[name].items_to_place_this[1].name
   local free = not player or player.controller_type == defines.controllers.editor
   local inv = player and not free and player.get_main_inventory()
+  if t_ == "pipe-to-ground" and player then
+    name = pick_pipe(ug, player.mod_settings["ugf-pipe-choice"].value, force,
+      function(item) return inv and inv.get_item_count({ name = item, quality = quality }) > 0 end,
+      function(item)
+        if free then return false end
+        for _, r in pairs(recipes_for(item)) do
+          local ok, n = pcall(player.get_craftable_count, r)
+          if ok and n > 0 then return true end
+        end
+        return false
+      end)
+    if not name then return end
+  end
+  local item = prototypes.entity[name].items_to_place_this[1].name
   local real = not ghost and (free or (inv and inv.get_item_count({ name = item, quality = quality }) > 0))
   local spec = { name = name, position = gap, direction = dir, force = force, quality = quality }
 
@@ -259,10 +352,10 @@ end
 script.on_init(function() storage.queue = {} end)
 script.on_configuration_changed(function()
   storage.queue = storage.queue or {}
-  fill_cache, blocked = {}, nil
+  fill_cache, cand_cache, blocked = {}, {}, nil
 end)
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(ev)
-  if ev.setting == "ugf-blocked" then fill_cache, blocked = {}, nil end
+  if ev.setting == "ugf-blocked" then fill_cache, cand_cache, blocked = {}, {}, nil end
 end)
 script.on_load(function()
   if storage.queue and next(storage.queue) then script.on_event(defines.events.on_tick, on_tick) end
@@ -282,7 +375,14 @@ remote.add_interface("underground-gap-fill", {
   -- set the "Never fill with" setting (names separated by commas or spaces)
   set_blocked = function(names)
     settings.global["ugf-blocked"] = { value = names or "" }
-    fill_cache, blocked = {}, nil
+    fill_cache, cand_cache, blocked = {}, {}, nil
+  end,
+  -- the pipe `mode` ("match" / "have" / "researched") picks for underground `ug`, for a force holding `have`
+  -- ({ [item] = count }); tests: headless games have no players
+  pick_pipe = function(ug, mode, force, have)
+    have = have or {}
+    return pick_pipe(ug, mode, game.forces[force or "player"],
+      function(item) return (have[item] or 0) > 0 end, function() return false end)
   end,
   fill_name = function(ug)
     local p = prototypes.entity[ug]

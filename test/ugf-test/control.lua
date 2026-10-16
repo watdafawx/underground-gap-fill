@@ -112,13 +112,32 @@ script.on_nth_tick(5, function(ev)
 
   -- block list
   check(settings.global["ugf-blocked"].value == "void-pipe", "void-pipe blocked by default")
-  remote.call("underground-gap-fill", "set_blocked", "foo, pipe")
+  remote.call("underground-gap-fill", "set_blocked", "foo, pipe test-steel-pipe")
   check(remote.call("underground-gap-fill", "fill_name", "pipe-to-ground") == nil, "blocked pipe never chosen")
   a = make("pipe-to-ground", 0.5, 22.5, D.east)
   make("pipe-to-ground", 2.5, 22.5, D.west)
   check(fill(a) == nil and at(1.5, 22.5) == nil, "blocked pipe: gap left empty")
   remote.call("underground-gap-fill", "set_blocked", "void-pipe")
   check(remote.call("underground-gap-fill", "fill_name", "pipe-to-ground") == "pipe", "unblocked again")
+
+  -- pipe choice
+  local function pick(ug, mode, have) return remote.call("underground-gap-fill", "pick_pipe", ug, mode, "player", have) end
+  local steel_r = f.recipes["test-steel-pipe"]
+  f.recipes.pipe.enabled = true -- this test map starts with nothing researched
+  check(pick("pipe-to-ground", "match") == "pipe", "match: plain underground gets plain pipe")
+  check(pick("test-steel-pipe-to-ground", "match") == "test-steel-pipe", "match: steel underground gets steel pipe")
+  check(pick("pipe-to-ground", "have", { ["test-steel-pipe"] = 5 }) == "test-steel-pipe", "have: the pipe you carry")
+  check(pick("pipe-to-ground", "have") == "pipe", "have: none carried, matching one")
+  check(pick("test-steel-pipe-to-ground", "researched") == "pipe", "researched: unresearched steel pipe skipped")
+  check(pick("test-steel-pipe-to-ground", "researched", { ["test-steel-pipe"] = 1 }) == "test-steel-pipe",
+    "researched: carried steel pipe still fine")
+  steel_r.enabled = true
+  check(pick("test-steel-pipe-to-ground", "researched") == "test-steel-pipe", "researched: steel once researched")
+  steel_r.enabled = false
+  check(pick("pipe-to-ground", "have", { ["test-alien-pipe"] = 9 }) ~= "test-alien-pipe", "other connection category never picked")
+  remote.call("underground-gap-fill", "set_blocked", "pipe test-steel-pipe")
+  check(pick("pipe-to-ground", "have", { ["test-alien-pipe"] = 9 }) == nil, "only an unfitting pipe left: nothing")
+  remote.call("underground-gap-fill", "set_blocked", "void-pipe")
 
   log(fails == 0 and "ALL PASS" or (fails .. " FAILED"))
   helpers.write_file("ugf-test.txt", table.concat(out, "\n") .. "\n")

@@ -25,6 +25,10 @@ recipes only. Don't run both.
 
 - Fill gaps after underground pipes (on)
 - Fill gaps after underground belts (on)
+- Pipe choice: **Same kind as the underground** (default: steel with steel, then one you have, can craft or have
+  researched), **One I have or can craft** (inventory first, then hand-craftable, then same kind) or **Researched
+  pipes only** (never an unresearched pipe unless you carry it). Pipes that can't connect to the underground
+  (another connection category) are never used.
 
 Map setting: **Never fill with** (`void-pipe`): entity names, comma or space separated, never put into a gap.
 The next match is used instead (recipe pipe, name, plain `pipe`), or the gap stays empty.
@@ -32,9 +36,9 @@ The next match is used instead (recipe pipe, name, plain `pipe`), or the gap sta
 ## Remote
 
 `remote.call("underground-gap-fill", "fill", entity, player_index?)` fills now and returns the entity placed.
-`fill_name(underground_name)` returns the pipe/belt it would use. `set_blocked("a, b")` sets Never fill with.
+`fill_name(underground_name)` returns the pipe/belt it would use. `set_blocked("a, b")` sets Never fill with. `pick_pipe(ug, mode, force?, {[item]=count}?)` returns the pipe a mode picks.
 
 ## Tests
 
 `python test/run.py --all` (headless, `ugf-test`: pipe straight/corner/tank, fluid mixing, ghosts, occupied gap,
-belt straight/corner/both ends, fast belts, quality, block list).
+belt straight/corner/both ends, fast belts, quality, block list, pipe choice modes, connection categories; its data.lua adds an unresearched steel pipe family and a pipe of another category).

@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: 2026-10-16
+  Features:
+    - "Pipe choice" setting (per player): same kind as the underground (default), one you have or can
+      hand-craft, or researched pipes only. Each puts its rule first and uses the others as tie-breaks
+    - A pipe with a different connection category than the underground is never used
+  Bugfixes:
+    - Recycling recipes no longer count when matching a pipe to its underground
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2026-10-16
   Features:
