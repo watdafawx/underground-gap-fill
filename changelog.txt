@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2026-10-16
+  Features:
+    - "Never fill with" setting (map settings): entity names never put into a gap, void-pipe by default.
+      The next matching pipe or belt is used instead, or the gap is left empty
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: 2026-10-14
   Features:

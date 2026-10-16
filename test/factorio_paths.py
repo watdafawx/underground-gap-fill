@@ -478,9 +478,32 @@ def headless(run, mods, case, ticks, base=BASE_MODS, save=None, timeout=None):
     return ("PASS" if text and "FAIL" not in text else "FAIL"), text or "no result"
 
 
+def changed_cases(test_dir):
+    """the case folders in `test_dir` with a file that differs from git HEAD (edited, added, untracked)"""
+    try:
+        out = subprocess.run(["git", "status", "--porcelain", "-uall", "--", "."], cwd=test_dir, capture_output=True,
+                             text=True, check=True).stdout
+        top = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=test_dir, capture_output=True,
+                                  text=True, check=True).stdout.strip())
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    found = []
+    for line in out.splitlines():
+        path = (top / line[3:].split(" -> ")[-1].strip('"')).resolve()
+        try:
+            rel = path.relative_to(test_dir.resolve())
+        except ValueError:
+            continue
+        if len(rel.parts) > 1 and rel.parts[0] != "run" and rel.parts[0] not in found:
+            found.append(rel.parts[0])
+    return found
+
+
 def main(run_py, cases, base=BASE_MODS, user_mods=()):
     """A mod's test/run.py. `cases` is {case: ticks}, the first one the default.
       run.py [CASE [TICKS]] [--with MOD]   one case in test/run (MOD: another mod, see user_mod)
+      run.py CASE CASE ... | --changed     some cases at once, like --all (--changed: the cases whose test/<case>
+                                           folder differs from git HEAD, new ones too; more CASEs may be added)
       run.py --all [-j N]                  every case, N games at once (default 4), each in test/run/all/<case>
     A case stops early once its result ends in "ALL PASS" / "<n> FAILED". --timeout S: a case still running after
     S seconds is a HANG (default 1 min + 1 s per 300 ticks). --seed N: play on another map (random: a new one).
@@ -490,14 +513,25 @@ def main(run_py, cases, base=BASE_MODS, user_mods=()):
     mod_name = json.loads((mod / "info.json").read_text(encoding="utf-8"))["name"]  # (may differ from the folder's)
     ap = argparse.ArgumentParser(usage=main.__doc__.splitlines()[1].strip() + "\n       "
                                  + main.__doc__.splitlines()[2].strip())
-    ap.add_argument("case", nargs="?", default=next(iter(cases)))
-    ap.add_argument("ticks", nargs="?", type=int)
+    ap.add_argument("names", nargs="*", metavar="CASE")
+    ap.add_argument("--changed", action="store_true")
     ap.add_argument("--with", dest="extra", action="append", default=[])
     ap.add_argument("--all", action="store_true")
     ap.add_argument("-j", type=int, default=4)
     ap.add_argument("--timeout", type=float)
     ap.add_argument("--seed", default=str(TEST_SEED))
     a = ap.parse_args()
+    a.ticks = int(a.names.pop()) if len(a.names) == 2 and a.names[1].isdigit() else None
+    unknown = [n for n in a.names if n not in cases]
+    if unknown and len(a.names) > 1:  # (one case may be a scratch one not in the table yet)
+        ap.error(f"no case {', '.join(unknown)} in run.py (cases: {', '.join(cases)})")
+    if a.changed:
+        a.names += [c for c in changed_cases(here) if c in cases and c not in a.names]
+        if not a.names:
+            print("no case changed since git HEAD")
+            sys.exit(0)
+    pick = None if a.all else a.names if a.changed or len(a.names) > 1 else None
+    a.case = a.names[0] if a.names else next(iter(cases))
     # (keyed by info.json name: --with trash-slot finds mods/trash-slot, which the game knows as wx-trash-slot)
     extra = {}
     for n in [*user_mods, *a.extra]:
@@ -515,12 +549,15 @@ def main(run_py, cases, base=BASE_MODS, user_mods=()):
         except Exception:  # (a broken case shouldn't take the other cases down with it)
             return "FAIL", traceback.format_exc()
 
-    if not a.all:
+    if pick is None and not a.all:
         status, text = one(a.case, a.ticks or cases.get(a.case) or next(iter(cases.values())), here / "run")
         print(text)
         if status != "PASS":
             print(status, a.case)
         sys.exit(0 if status == "PASS" else 1)
+    if pick is not None:
+        cases = {c: cases[c] for c in pick}
+        print("cases:", ", ".join(cases), flush=True)
     start, failed = time.time(), []
 
     def timed(c, t):

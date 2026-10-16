@@ -26,12 +26,15 @@ recipes only. Don't run both.
 - Fill gaps after underground pipes (on)
 - Fill gaps after underground belts (on)
 
+Map setting: **Never fill with** (`void-pipe`): entity names, comma or space separated, never put into a gap.
+The next match is used instead (recipe pipe, name, plain `pipe`), or the gap stays empty.
+
 ## Remote
 
 `remote.call("underground-gap-fill", "fill", entity, player_index?)` fills now and returns the entity placed.
-`fill_name(underground_name)` returns the pipe/belt it would use.
+`fill_name(underground_name)` returns the pipe/belt it would use. `set_blocked("a, b")` sets Never fill with.
 
 ## Tests
 
 `python test/run.py --all` (headless, `ugf-test`: pipe straight/corner/tank, fluid mixing, ghosts, occupied gap,
-belt straight/corner/both ends, fast belts, quality).
+belt straight/corner/both ends, fast belts, quality, block list).

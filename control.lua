@@ -29,9 +29,18 @@ end
 -- which pipe / belt goes with an underground (cached per session: derived from prototypes only)
 
 local fill_cache = {}
+local blocked -- set of entity names from the "ugf-blocked" setting (read lazily, reset with fill_cache)
+
+local function is_blocked(name)
+  if not blocked then
+    blocked = {}
+    for n in string.gmatch(settings.global["ugf-blocked"].value, "[^%s,;]+") do blocked[n] = true end
+  end
+  return blocked[name]
+end
 
 local function is_type(name, t)
-  local p = name and prototypes.entity[name]
+  local p = name and not is_blocked(name) and prototypes.entity[name]
   return p and p.type == t and p.items_to_place_this and p.items_to_place_this[1] and true or false
 end
 
@@ -60,6 +69,7 @@ local function belt_for(ug)
   local proto = prototypes.entity[ug]
   local ok, rel = pcall(function() return proto.related_transport_belt end)
   if ok and rel and is_type(rel.name, "transport-belt") then return rel.name end
+  -- same speed, first by name (blocked names skipped by is_type)
   local best
   for name, p in pairs(prototypes.get_entity_filtered({ { filter = "type", type = "transport-belt" } })) do
     if p.belt_speed == proto.belt_speed and is_type(name, "transport-belt") and (not best or name < best) then
@@ -249,7 +259,10 @@ end
 script.on_init(function() storage.queue = {} end)
 script.on_configuration_changed(function()
   storage.queue = storage.queue or {}
-  fill_cache = {}
+  fill_cache, blocked = {}, nil
+end)
+script.on_event(defines.events.on_runtime_mod_setting_changed, function(ev)
+  if ev.setting == "ugf-blocked" then fill_cache, blocked = {}, nil end
 end)
 script.on_load(function()
   if storage.queue and next(storage.queue) then script.on_event(defines.events.on_tick, on_tick) end
@@ -265,6 +278,11 @@ remote.add_interface("underground-gap-fill", {
   -- fill the gap after `entity` now (tests: headless games have no players); returns the entity placed
   fill = function(entity, player_index)
     return fill(entity, player_index and game.get_player(player_index) or nil)
+  end,
+  -- set the "Never fill with" setting (names separated by commas or spaces)
+  set_blocked = function(names)
+    settings.global["ugf-blocked"] = { value = names or "" }
+    fill_cache, blocked = {}, nil
   end,
   fill_name = function(ug)
     local p = prototypes.entity[ug]

@@ -110,6 +110,16 @@ script.on_nth_tick(5, function(ev)
     check(p and p.quality.name == "legendary", "quality kept")
   end
 
+  -- block list
+  check(settings.global["ugf-blocked"].value == "void-pipe", "void-pipe blocked by default")
+  remote.call("underground-gap-fill", "set_blocked", "foo, pipe")
+  check(remote.call("underground-gap-fill", "fill_name", "pipe-to-ground") == nil, "blocked pipe never chosen")
+  a = make("pipe-to-ground", 0.5, 22.5, D.east)
+  make("pipe-to-ground", 2.5, 22.5, D.west)
+  check(fill(a) == nil and at(1.5, 22.5) == nil, "blocked pipe: gap left empty")
+  remote.call("underground-gap-fill", "set_blocked", "void-pipe")
+  check(remote.call("underground-gap-fill", "fill_name", "pipe-to-ground") == "pipe", "unblocked again")
+
   log(fails == 0 and "ALL PASS" or (fails .. " FAILED"))
   helpers.write_file("ugf-test.txt", table.concat(out, "\n") .. "\n")
 end)
