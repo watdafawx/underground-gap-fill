@@ -1,6 +1,6 @@
 # Underground Gap Fill
 
-Factorio 2.0 mod. Fills the one-tile gap after an underground:
+Factorio 2.1 mod. Fills the one-tile gap after an underground:
 
 - **Pipes**: between two underground pipes (straight or round a corner), or between an underground pipe and a
   machine's pipe connection (tanks, pumps, assemblers…). A plain pipe beside the gap doesn't count, so parallel

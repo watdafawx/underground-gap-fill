@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2026-10-24
+  Changes:
+    - Factorio 2.1: fluid connections read the new way, recycling recipes found by their category list.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-10-16
   Features:

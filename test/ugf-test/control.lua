@@ -31,7 +31,7 @@ script.on_nth_tick(5, function(ev)
 
   -- convention: a pipe-to-ground's direction is the side its pipe connection opens onto
   local conv = make("pipe-to-ground", -5.5, -5.5, D.north)
-  local c = conv.fluidbox.get_pipe_connections(1)[1]
+  local c = conv.get_fluid_box_pipe_connections(1)[1]
   check(c.connection_type == "normal" and c.target_position.x == -5.5 and c.target_position.y == -6.5,
     "pipe-to-ground north opens north: " .. serpent.line(c.target_position))
 
@@ -47,7 +47,7 @@ script.on_nth_tick(5, function(ev)
   check(p and p.name == "pipe" and p.position.x == 7.5 and p.position.y == 0.5, "pipe corner gap filled")
 
   local tank = make("storage-tank", 14.5, 1.5, D.north)
-  local tc = tank.fluidbox.get_pipe_connections(1)[1]
+  local tc = tank.get_fluid_box_pipe_connections(1)[1]
   local vx, vy = tc.target_position.x - tc.position.x, tc.target_position.y - tc.position.y
   local dir = vx > 0 and D.west or vx < 0 and D.east or vy > 0 and D.north or D.south
   a = make("pipe-to-ground", tc.target_position.x + vx, tc.target_position.y + vy, dir)

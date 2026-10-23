@@ -272,7 +272,7 @@ def add_skip_intro(md):
     sm = md / SKIP_INTRO_MOD
     sm.mkdir(parents=True, exist_ok=True)
     (sm / "info.json").write_text(json.dumps({"name": SKIP_INTRO_MOD, "version": "0.0.1", "title": SKIP_INTRO_MOD,
-                                              "author": "tests", "factorio_version": "2.0"}))
+                                              "author": "tests", "factorio_version": "2.1"}))
     (sm / "control.lua").write_text(SKIP_INTRO_LUA)
     ml = md / "mod-list.json"
     lst = json.loads(ml.read_text()) if ml.exists() else {"mods": []}
@@ -417,7 +417,7 @@ def add_files_check(md, names):
     fm = md / FILES_MOD
     fm.mkdir(exist_ok=True)
     (fm / "info.json").write_text(json.dumps({"name": FILES_MOD, "version": "0.0.1", "title": FILES_MOD,
-                                              "author": "tests", "factorio_version": "2.0",
+                                              "author": "tests", "factorio_version": "2.1",
                                               "dependencies": ["? " + n for n in names]}))
     (fm / "data-final-fixes.lua").write_text(FILES_LUA % ", ".join(f'["{n}"] = true' for n in names))
     ml = md / "mod-list.json"

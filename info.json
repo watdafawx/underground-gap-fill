@@ -1,9 +1,9 @@
 {
   "name": "underground-gap-fill",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "title": "Underground Gap Fill",
   "author": "mtopfox",
-  "factorio_version": "2.0",
+  "factorio_version": "2.1",
   "description": "Fills the one-tile gap after an underground pipe or belt: between two undergrounds (straight or round a corner) and, for pipes, between an underground and a machine's pipe connection. Waits until you stop drag-building, so drags keep their full underground range. Uses the item from your inventory, or a ghost when you have none. Safe to add or remove at any time.",
   "dependencies": [
     "base >= 2.0"

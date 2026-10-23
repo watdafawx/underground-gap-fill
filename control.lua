@@ -44,12 +44,16 @@ local function is_type(name, t)
   return p and p.type == t and p.items_to_place_this and p.items_to_place_this[1] and true or false
 end
 
+local function is_recycling(r)
+  for _, c in pairs(r.categories) do if c == "recycling" then return true end end
+end
+
 -- names of the real recipes making `item` (recycling and other hidden recipes left out: they're always enabled)
 local function recipes_for(item)
   local list = {}
   for name, r in pairs(prototypes.get_recipe_filtered({
     { filter = "has-product-item", elem_filters = { { filter = "name", name = item } } } })) do
-    if not r.hidden and r.category ~= "recycling" then list[#list + 1] = name end
+    if not r.hidden and not is_recycling(r) then list[#list + 1] = name end
   end
   return list
 end
@@ -175,8 +179,8 @@ end
 -- the tile a pipe-to-ground's above-ground side opens onto
 local function pipe_gap(e, ghost)
   if not ghost then
-    for i = 1, #e.fluidbox do
-      for _, c in pairs(e.fluidbox.get_pipe_connections(i)) do
+    for i = 1, e.fluids_count do
+      for _, c in pairs(e.get_fluid_box_pipe_connections(i) or {}) do
         if c.connection_type == "normal" then return tile(c.target_position.x, c.target_position.y) end
       end
     end
@@ -196,9 +200,8 @@ local function pipe_partner(e, t)
         if ot == "pipe-to-ground" and VEC[o.direction] and same_tile(step(o.position, o.direction), t) then return true end
       elseif ot ~= "pipe" and ot ~= "infinity-pipe" and ot ~= "fluid-wagon" then
         local ok, hit = pcall(function()
-          local fb = o.fluidbox
-          for i = 1, #fb do
-            for _, c in pairs(fb.get_pipe_connections(i)) do
+          for i = 1, o.fluids_count do
+            for _, c in pairs(o.get_fluid_box_pipe_connections(i) or {}) do
               if c.connection_type == "normal" and same_tile(c.target_position, t) then return true end
             end
           end
